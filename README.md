@@ -26,7 +26,7 @@ Built end-to-end against the OWASP Agentic AI Top 10.
 
 It is designed for the operational reality of agentic systems in production: opaque LLM intent, ambient prompt injection, compromised tool outputs, drifting policies, multi-tenant blast radius, and the absence of meaningful default guardrails in modern agent frameworks.
 
-The result is a single, observable, policy-driven enforcement point with cryptographic provenance, behavioral trust scoring, and SIEM-grade telemetry — engineered to be the security control plane your SOC and compliance team will actually accept.
+The result is a single, observable, policy-driven enforcement point with cryptographic provenance, behavioral trust scoring, and SIEM-grade telemetry engineered to be the security control plane your SOC and compliance team will actually accept.
 
 ## Why it exists
 
