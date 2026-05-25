@@ -3,11 +3,13 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 from fastapi import Depends, Header, HTTPException, status
 
-from sentinel.core.interceptor import Interceptor
-from sentinel.tenancy.manager import TenantConfig, TenantManager
+if TYPE_CHECKING:
+    from sentinel.core.interceptor import Interceptor
+    from sentinel.tenancy.manager import TenantConfig, TenantManager
 
 
 @dataclass(slots=True)
@@ -37,5 +39,7 @@ def get_tenant(
     tenant_id = x_tenant_id or "default"
     try:
         return state.tenants.get(tenant_id)
-    except Exception:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, detail=f"unknown tenant: {tenant_id}")
+    except Exception as exc:
+        raise HTTPException(
+            status.HTTP_404_NOT_FOUND, detail=f"unknown tenant: {tenant_id}"
+        ) from exc

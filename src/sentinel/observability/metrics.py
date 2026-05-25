@@ -9,6 +9,7 @@ can run without the dependency.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import ClassVar
 
 try:
     from prometheus_client import Counter, Histogram  # type: ignore
@@ -38,11 +39,15 @@ class Metrics:
     policy_reloads_total: object
     breaker_state_changes_total: object
 
+    _singleton: ClassVar[Metrics | None] = None
+
     @classmethod
-    def default(cls) -> "Metrics":
-        return cls(
+    def default(cls) -> Metrics:
+        if cls._singleton is not None:
+            return cls._singleton
+        instance = cls(
             actions_total=Counter(
-                "sentinel_actions_total",
+                "sentinel_actions",
                 "Total actions evaluated",
                 ["tenant", "action_type"],
             ),
@@ -73,3 +78,5 @@ class Metrics:
                 ["dependency", "to_state"],
             ),
         )
+        cls._singleton = instance
+        return instance

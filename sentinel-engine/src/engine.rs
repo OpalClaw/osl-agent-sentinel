@@ -105,7 +105,9 @@ mod tests {
     #[test]
     fn r3_denies_filesystem_write() {
         let engine = Engine::default();
-        let err = engine.evaluate(Ring::R3NetworkOnly, "filesystem_write").unwrap_err();
+        let err = engine
+            .evaluate(Ring::R3NetworkOnly, "filesystem_write")
+            .unwrap_err();
         assert!(matches!(err, EngineError::RingDenied { .. }));
     }
 

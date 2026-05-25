@@ -20,19 +20,11 @@ Order of evaluation:
 from __future__ import annotations
 
 import asyncio
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
-from typing import Awaitable, Callable
+from typing import TYPE_CHECKING
 
-from sentinel.classifiers.anomaly_detector import AnomalyDetector
-from sentinel.classifiers.injection_detector import PromptInjectionDetector
-from sentinel.classifiers.intent_classifier import IntentClassifier
-from sentinel.classifiers.tool_validator import ToolValidator
-from sentinel.core.cache import LocalPolicyCache
 from sentinel.core.circuit_breaker import CircuitBreaker
-from sentinel.core.policy_engine import PolicyEngine, RuleMatch
-from sentinel.dlp.scanner import DLPScanner
-from sentinel.identity.resolver import IdentityResolver
-from sentinel.identity.trust_scorer import TrustScorer
 from sentinel.models.action import Action
 from sentinel.models.decision import (
     Decision,
@@ -42,9 +34,23 @@ from sentinel.models.decision import (
 )
 from sentinel.models.identity import Identity, TrustTier
 from sentinel.models.policy import RuleEffect
-from sentinel.utils.errors import DependencyUnavailableError
+from sentinel.utils.errors import DependencyUnavailableError, IdentityError
 from sentinel.utils.logging import get_logger
 from sentinel.utils.timing import stopwatch
+
+if TYPE_CHECKING:
+    from sentinel.classifiers.anomaly_detector import AnomalyDetector
+    from sentinel.classifiers.injection_detector import PromptInjectionDetector
+    from sentinel.classifiers.intent_classifier import IntentClassifier
+    from sentinel.classifiers.tool_validator import ToolValidator
+    from sentinel.core.approval import ApprovalWorkflow
+    from sentinel.core.cache import LocalPolicyCache
+    from sentinel.core.policy_engine import PolicyEngine, RuleMatch
+    from sentinel.dlp.scanner import DLPScanner
+    from sentinel.identity.resolver import IdentityResolver
+    from sentinel.identity.trust_scorer import TrustScorer
+    from sentinel.observability.metrics import Metrics
+    from sentinel.tenancy.manager import TenantManager
 
 log = get_logger(__name__)
 
@@ -70,9 +76,14 @@ class PipelineDeps:
     injection_detector: PromptInjectionDetector
     dlp_scanner: DLPScanner
     policy_cache: LocalPolicyCache | None = None
+    approval_workflow: ApprovalWorkflow | None = None
+    tenants: TenantManager | None = None
     identity_breaker: CircuitBreaker = field(
         default_factory=lambda: CircuitBreaker(name="identity")
     )
+    policy_breaker: CircuitBreaker = field(default_factory=lambda: CircuitBreaker(name="policy"))
+    dlp_breaker: CircuitBreaker = field(default_factory=lambda: CircuitBreaker(name="dlp"))
+    metrics: Metrics | None = None
 
 
 class DecisionPipeline:
@@ -81,8 +92,29 @@ class DecisionPipeline:
     def __init__(self, deps: PipelineDeps) -> None:
         self._deps = deps
 
+    @property
+    def policy_engine(self) -> PolicyEngine:
+        return self._deps.policy_engine
+
+    @property
+    def identity_resolver(self) -> IdentityResolver:
+        return self._deps.identity_resolver
+
+    @property
+    def approval_workflow(self) -> ApprovalWorkflow | None:
+        return self._deps.approval_workflow
+
+    @property
+    def policy_cache(self) -> LocalPolicyCache | None:
+        return self._deps.policy_cache
+
+    @property
+    def metrics(self) -> Metrics | None:
+        return self._deps.metrics
+
     async def evaluate(self, action: Action) -> Decision:
         degraded = False
+        identity_unknown = False
         try:
             identity = await self._deps.identity_breaker.call(
                 lambda: self._deps.identity_resolver.resolve(action.agent_did)
@@ -91,8 +123,26 @@ class DecisionPipeline:
             identity = None
             degraded = True
             log.warning("pipeline.identity_unavailable", action_id=str(action.id))
+        except IdentityError:
+            identity = None
+            identity_unknown = True
+            log.info(
+                "pipeline.identity_unknown",
+                action_id=str(action.id),
+                agent_did=action.agent_did,
+            )
 
         risk_factors: list[RiskFactor] = []
+        if identity_unknown:
+            risk_factors.append(
+                RiskFactor(
+                    code="identity.unknown",
+                    severity=0.6,
+                    detector="identity_resolver",
+                    message=f"Unknown or anonymous agent DID: {action.agent_did}",
+                    evidence={"references": "OWASP-AGENT-04"},
+                )
+            )
         with stopwatch() as t:
             classifier_results = await asyncio.gather(
                 self._safe_run(self._deps.intent_classifier.classify, action, identity),
@@ -104,7 +154,7 @@ class DecisionPipeline:
         for batch in classifier_results:
             risk_factors.extend(batch)
 
-        matches = self._deps.policy_engine.evaluate(action, identity)
+        matches = self._deps.policy_engine.evaluate(action, identity, risk_factors)
 
         verdict, summary, rule_ids = self._reconcile(matches, risk_factors, identity)
 
@@ -169,20 +219,34 @@ class DecisionPipeline:
         # No explicit policy effect — fall through to risk-score thresholds.
         score = _aggregate_risk(risk_factors)
         if score >= DENY_THRESHOLD:
-            return DecisionVerdict.DENY, f"Aggregate risk score {score:.2f} exceeded deny threshold.", rule_ids
+            return (
+                DecisionVerdict.DENY,
+                f"Aggregate risk score {score:.2f} exceeded deny threshold.",
+                rule_ids,
+            )
         if score >= ESCALATE_THRESHOLD:
-            return DecisionVerdict.ESCALATE, f"Aggregate risk score {score:.2f} exceeded escalate threshold.", rule_ids
+            return (
+                DecisionVerdict.ESCALATE,
+                f"Aggregate risk score {score:.2f} exceeded escalate threshold.",
+                rule_ids,
+            )
         if score >= THROTTLE_THRESHOLD:
-            return DecisionVerdict.THROTTLE, f"Aggregate risk score {score:.2f} exceeded throttle threshold.", rule_ids
+            return (
+                DecisionVerdict.THROTTLE,
+                f"Aggregate risk score {score:.2f} exceeded throttle threshold.",
+                rule_ids,
+            )
         if identity is None:
             return DecisionVerdict.ESCALATE, "Agent identity unresolved; escalating.", rule_ids
         return DecisionVerdict.ALLOW, "Action passed all sentinel checks.", rule_ids
 
     @staticmethod
-    async def _safe_run(fn: ClassifierFn, action: Action, identity: Identity | None) -> list[RiskFactor]:
+    async def _safe_run(
+        fn: ClassifierFn, action: Action, identity: Identity | None
+    ) -> list[RiskFactor]:
         try:
             return await fn(action, identity)
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             log.error("classifier.error", classifier=fn.__qualname__, error=str(exc))
             # Fail closed by surfacing a synthetic high-severity risk factor.
             return [

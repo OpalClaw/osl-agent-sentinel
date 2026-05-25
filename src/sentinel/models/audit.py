@@ -7,13 +7,15 @@ consume.
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
+from typing import TYPE_CHECKING
 from uuid import UUID, uuid4
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from sentinel.models.action import Action
-from sentinel.models.decision import Decision
+if TYPE_CHECKING:
+    from sentinel.models.action import Action
+    from sentinel.models.decision import Decision
 
 
 class AuditRecord(BaseModel):
@@ -24,12 +26,14 @@ class AuditRecord(BaseModel):
     id: UUID = Field(default_factory=uuid4)
     sequence: int = Field(..., ge=0, description="Monotonic per-tenant sequence number.")
     tenant_id: str = "default"
-    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(UTC))
     action: Action
     decision: Decision
     previous_digest: str = Field(
         ...,
-        description="SHA-256 of the previous record. The first record in a chain uses 64 zero hex chars.",
+        description=(
+            "SHA-256 of the previous record. " "The first record in a chain uses 64 zero hex chars."
+        ),
     )
     record_digest: str = Field(
         ...,

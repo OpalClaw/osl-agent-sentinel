@@ -5,7 +5,7 @@
 use pyo3::exceptions::{PyRuntimeError, PyValueError};
 use pyo3::prelude::*;
 
-use crate::{Engine as RustEngine, EngineConfig, Ring as RustRing, verify_ed25519 as rust_verify};
+use crate::{verify_ed25519 as rust_verify, Engine as RustEngine, EngineConfig, Ring as RustRing};
 
 #[pyclass(name = "Engine")]
 struct PyEngine {
@@ -16,7 +16,9 @@ struct PyEngine {
 impl PyEngine {
     #[new]
     fn new() -> Self {
-        Self { inner: RustEngine::new(EngineConfig::default()) }
+        Self {
+            inner: RustEngine::new(EngineConfig::default()),
+        }
     }
 
     fn evaluate(&self, ring: &str, action_class: &str) -> PyResult<bool> {
@@ -36,8 +38,12 @@ impl PyEngine {
 
 #[pyfunction]
 fn verify_ed25519(public_key: &[u8], message: &[u8], signature: &[u8]) -> PyResult<bool> {
-    let pk: &[u8; 32] = public_key.try_into().map_err(|_| PyValueError::new_err("public_key must be 32 bytes"))?;
-    let sig: &[u8; 64] = signature.try_into().map_err(|_| PyValueError::new_err("signature must be 64 bytes"))?;
+    let pk: &[u8; 32] = public_key
+        .try_into()
+        .map_err(|_| PyValueError::new_err("public_key must be 32 bytes"))?;
+    let sig: &[u8; 64] = signature
+        .try_into()
+        .map_err(|_| PyValueError::new_err("signature must be 64 bytes"))?;
     Ok(rust_verify(pk, message, sig).is_ok())
 }
 

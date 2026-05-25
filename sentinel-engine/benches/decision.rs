@@ -12,7 +12,10 @@ fn bench_evaluate(c: &mut Criterion) {
     });
     c.bench_function("engine_evaluate_r3_filesystem_write_denied", |b| {
         b.iter(|| {
-            let _ = engine.evaluate(black_box(Ring::R3NetworkOnly), black_box("filesystem_write"));
+            let _ = engine.evaluate(
+                black_box(Ring::R3NetworkOnly),
+                black_box("filesystem_write"),
+            );
         });
     });
 }

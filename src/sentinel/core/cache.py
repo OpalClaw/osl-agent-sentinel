@@ -11,7 +11,7 @@ Decisions made while the cache is serving the bundle are flagged
 from __future__ import annotations
 
 import json
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 from sentinel.models.policy import PolicyBundle
@@ -38,7 +38,7 @@ class LocalPolicyCache:
         meta = {
             "version": bundle.version,
             "issuer": bundle.issuer,
-            "saved_at": datetime.now(timezone.utc).isoformat(),
+            "saved_at": datetime.now(UTC).isoformat(),
         }
         meta_path.write_text(json.dumps(meta, indent=2))
         log.info("policy.cache.saved", version=bundle.version, path=str(bundle_path))
@@ -50,7 +50,7 @@ class LocalPolicyCache:
         try:
             data = json.loads(path.read_text())
             return PolicyBundle.model_validate(data)
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             log.error("policy.cache.load_failed", error=str(exc), path=str(path))
             return None
 

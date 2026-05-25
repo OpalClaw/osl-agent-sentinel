@@ -7,10 +7,12 @@ suitable for tests and small single-node deployments.
 
 from __future__ import annotations
 
-from typing import Protocol
+from typing import TYPE_CHECKING, Protocol
 
-from sentinel.models.identity import Identity
 from sentinel.utils.errors import IdentityError
+
+if TYPE_CHECKING:
+    from sentinel.models.identity import Identity
 
 
 class IdentityStore(Protocol):

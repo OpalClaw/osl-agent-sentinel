@@ -2,12 +2,16 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 from fastapi import APIRouter, Depends, HTTPException, status
 
 from sentinel.api.dependencies import AppState, get_state, get_tenant
-from sentinel.models.action import Action
 from sentinel.models.decision import Decision
-from sentinel.tenancy.manager import TenantConfig
+
+if TYPE_CHECKING:
+    from sentinel.models.action import Action
+    from sentinel.tenancy.manager import TenantConfig
 
 router = APIRouter(prefix="/v1", tags=["evaluate"])
 

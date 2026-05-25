@@ -9,9 +9,9 @@ from __future__ import annotations
 
 import base64
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import yaml
-from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
 
 from sentinel.models.policy import PolicyBundle
 from sentinel.utils.canonical import canonical_bytes
@@ -19,10 +19,15 @@ from sentinel.utils.crypto import verify
 from sentinel.utils.errors import PolicyError
 from sentinel.utils.logging import get_logger
 
+if TYPE_CHECKING:
+    from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
+
 log = get_logger(__name__)
 
 
-def load_bundle_from_path(path: str | Path, *, public_key: Ed25519PublicKey | None = None) -> PolicyBundle:
+def load_bundle_from_path(
+    path: str | Path, *, public_key: Ed25519PublicKey | None = None
+) -> PolicyBundle:
     """Read and (optionally) verify a policy bundle."""
 
     raw = Path(path).read_text(encoding="utf-8")
@@ -73,3 +78,7 @@ class PolicyLoader:
         self._bundle = new_bundle
         log.info("policy.reload", old=old_version, new=new_bundle.version)
         return new_bundle
+
+    def load(self) -> PolicyBundle:
+        """Alias for :meth:`reload`. Loads the bundle from disk and verifies it."""
+        return self.reload()

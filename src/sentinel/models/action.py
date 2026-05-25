@@ -7,15 +7,15 @@ Sentinel intercepts each one before execution and emits a
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
-from enum import Enum
+from datetime import UTC, datetime
+from enum import StrEnum
 from typing import Any
 from uuid import UUID, uuid4
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import AliasChoices, BaseModel, ConfigDict, Field
 
 
-class ActionType(str, Enum):
+class ActionType(StrEnum):
     """The kinds of actions sentinel governs."""
 
     TOOL_CALL = "tool_call"
@@ -31,7 +31,14 @@ class ActionType(str, Enum):
     PAYMENT = "payment"
     NOTIFICATION = "notification"
     DATABASE_QUERY = "database_query"
+    AGENT_HANDOFF = "agent_handoff"
     OTHER = "other"
+
+
+# --- Short-form aliases ----------------------------------------------------
+ActionType.CODE_EXEC = ActionType.CODE_EXECUTION  # type: ignore[attr-defined]
+ActionType.SHELL = ActionType.SHELL_COMMAND  # type: ignore[attr-defined]
+ActionType.HTTP = ActionType.HTTP_REQUEST  # type: ignore[attr-defined]
 
 
 class ActionContext(BaseModel):
@@ -56,20 +63,28 @@ class ActionContext(BaseModel):
 class Action(BaseModel):
     """A proposed agent action awaiting evaluation."""
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="ignore", populate_by_name=True)
 
     id: UUID = Field(default_factory=uuid4)
     type: ActionType
     agent_did: str = Field(
-        ...,
+        default="did:anon:unknown",
         description="Decentralized identifier of the agent proposing this action.",
         min_length=8,
+        validation_alias=AliasChoices("agent_did", "principal_did"),
+        serialization_alias="agent_did",
     )
+    tenant_id: str = "default"
     tool: str | None = Field(
         default=None,
         description="Name of the tool/operation being invoked, if applicable.",
     )
-    arguments: dict[str, Any] = Field(default_factory=dict)
+    arguments: dict[str, Any] = Field(
+        default_factory=dict,
+        validation_alias=AliasChoices("arguments", "args"),
+        serialization_alias="arguments",
+        description="Tool arguments / prompt payload / memory contents.",
+    )
     payload_digest: str | None = Field(
         default=None,
         description="SHA-256 digest of the canonical payload (computed by interceptor).",
@@ -79,7 +94,7 @@ class Action(BaseModel):
         description="Natural-language statement of intent for this action.",
     )
     context: ActionContext = Field(default_factory=ActionContext)
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
     def canonical_dict(self) -> dict[str, Any]:
         """Return a deterministic dict representation for signing/hashing."""

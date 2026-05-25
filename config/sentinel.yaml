@@ -1,0 +1,52 @@
+# osl-agent-sentinel — central runtime config (loaded by sentinel.bootstrap)
+
+api:
+  host: 0.0.0.0
+  port: 8080
+  request_timeout_seconds: 30
+  max_body_bytes: 1048576
+
+auth:
+  mode: bearer            # bearer | jwt
+  required: true
+  jwt:
+    algorithms: [RS256, ES256]
+    audience: sentinel
+    issuer: ""
+    jwks_url: ""
+    leeway_seconds: 30
+
+policy:
+  default_bundle: config/policies/default.yaml
+  cache_path: .sentinel-cache/last-known-good.json
+  fail_closed: true
+  reload_seconds: 60
+
+classifiers:
+  intent:
+    min_similarity_for_match: 0.45
+    hard_drift_threshold: 0.30
+  anomaly:
+    window_seconds: 60
+    baseline_window_seconds: 600
+    spike_factor: 4.0
+  injection:
+    perplexity_warn: 60.0
+
+observability:
+  metrics_enabled: true
+  prometheus_path: /metrics
+  otel_endpoint: ""
+  siem:
+    enabled: false
+    endpoint: ""
+
+tenancy:
+  default_tenant: default
+
+resilience:
+  safe_mode_on_outage: true
+  circuit_breakers:
+    identity: { failure_threshold: 5, reset_seconds: 30 }
+    policy:   { failure_threshold: 5, reset_seconds: 30 }
+    dlp:      { failure_threshold: 5, reset_seconds: 30 }

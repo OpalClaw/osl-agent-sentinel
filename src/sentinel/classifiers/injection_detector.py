@@ -15,11 +15,15 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
-from typing import Iterable, Protocol
+from typing import TYPE_CHECKING, Protocol
 
 from sentinel.models.action import Action, ActionType
 from sentinel.models.decision import RiskFactor
-from sentinel.models.identity import Identity
+
+if TYPE_CHECKING:
+    from collections.abc import Iterable
+
+    from sentinel.models.identity import Identity
 
 
 class InjectionModel(Protocol):
@@ -37,11 +41,17 @@ class InjectionDetectorConfig:
 # Conservative pattern set covering common instruction-override and jailbreak shapes.
 # These are heuristics, not a complete defense — the pluggable model is for that.
 _PATTERNS: tuple[re.Pattern[str], ...] = (
-    re.compile(r"(?i)\bignore\s+(?:all\s+)?(?:previous|prior|earlier)\s+(?:instructions?|rules?)\b"),
-    re.compile(r"(?i)\bdisregard\s+(?:all\s+)?(?:previous|prior|system)\s+(?:instructions?|prompts?)\b"),
+    re.compile(
+        r"(?i)\bignore\s+(?:all\s+)?(?:previous|prior|earlier)\s+(?:instructions?|rules?)\b"
+    ),
+    re.compile(
+        r"(?i)\bdisregard\s+(?:all\s+)?(?:previous|prior|system)\s+(?:instructions?|prompts?)\b"
+    ),
     re.compile(r"(?i)\b(?:from\s+now\s+on|new\s+instructions?)\s*[:\-]"),
     re.compile(r"(?i)\byou\s+are\s+now\s+(?:a\s+)?(?:different|new)\b"),
-    re.compile(r"(?i)\b(?:reveal|show|print|output)\s+(?:the\s+)?(?:system\s+prompt|hidden\s+prompt|developer\s+prompt)\b"),
+    re.compile(
+        r"(?i)\b(?:reveal|show|print|output)\s+(?:the\s+)?(?:system\s+prompt|hidden\s+prompt|developer\s+prompt)\b"
+    ),
     re.compile(r"(?i)\bjailbreak\b|\bDAN\b|\bdo\s+anything\s+now\b"),
     re.compile(r"(?i)\boverride\s+(?:the\s+)?safety\b"),
     re.compile(r"(?i)\b(?:exfiltrate|leak)\s+.*\b(?:api[_\s-]?key|password|token|secret)s?\b"),
@@ -70,14 +80,17 @@ class PromptInjectionDetector:
         for text in candidates:
             text = text[: self._config.max_chars_per_field]
             for pat in _PATTERNS:
-                if (m := pat.search(text)):
+                if m := pat.search(text):
                     pattern_hits.append((pat.pattern, m.group(0)[:160]))
 
         model_score = 0.0
         if self._model is not None:
             try:
                 model_score = max(
-                    [await self._model.score(t[: self._config.max_chars_per_field]) for t in candidates]
+                    [
+                        await self._model.score(t[: self._config.max_chars_per_field])
+                        for t in candidates
+                    ]
                 )
             except Exception:
                 model_score = 0.0
@@ -112,6 +125,10 @@ class PromptInjectionDetector:
                 },
             )
         ]
+
+    async def classify(self, action: Action, identity: Identity | None) -> list[RiskFactor]:
+        """Alias for :meth:`scan` to match the common classifier shape."""
+        return await self.scan(action, identity)
 
     @staticmethod
     def _iter_text(action: Action) -> Iterable[str]:

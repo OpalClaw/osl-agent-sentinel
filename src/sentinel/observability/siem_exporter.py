@@ -15,17 +15,20 @@ bounded outbox to bound memory growth during outages.
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import json
 import os
 import sys
 from collections import deque
 from dataclasses import dataclass
-from typing import Deque, Protocol
+from typing import TYPE_CHECKING, Protocol
 
 import httpx
 
-from sentinel.models.audit import AuditRecord
 from sentinel.utils.logging import get_logger
+
+if TYPE_CHECKING:
+    from sentinel.models.audit import AuditRecord
 
 log = get_logger(__name__)
 
@@ -72,7 +75,7 @@ class SIEMExporter:
         flush_interval_seconds: float = 1.0,
     ) -> None:
         self._transport = transport or self._default_transport()
-        self._outbox: Deque[str] = deque(maxlen=max_outbox)
+        self._outbox: deque[str] = deque(maxlen=max_outbox)
         self._batch_size = batch_size
         self._flush_interval = flush_interval_seconds
         self._task: asyncio.Task[None] | None = None
@@ -94,10 +97,8 @@ class SIEMExporter:
     async def stop(self) -> None:
         if self._task is not None:
             self._task.cancel()
-            try:
+            with contextlib.suppress(asyncio.CancelledError):
                 await self._task
-            except asyncio.CancelledError:
-                pass
             self._task = None
         await self._flush()
 
@@ -113,14 +114,16 @@ class SIEMExporter:
                 backoff = 0.5
             except asyncio.CancelledError:
                 raise
-            except Exception as exc:  # noqa: BLE001
+            except Exception as exc:
                 log.warning("siem.flush_failed", error=str(exc), backoff=backoff)
                 await asyncio.sleep(backoff)
                 backoff = min(backoff * 2, 30.0)
 
     async def _flush(self) -> None:
         while self._outbox:
-            batch = [self._outbox.popleft() for _ in range(min(self._batch_size, len(self._outbox)))]
+            batch = [
+                self._outbox.popleft() for _ in range(min(self._batch_size, len(self._outbox)))
+            ]
             if not batch:
                 break
             await self._transport.send(batch)

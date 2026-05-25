@@ -2,8 +2,7 @@ name: Release
 
 on:
   push:
-    tags:
-      - "v*.*.*"
+    tags: ["v*.*.*"]
 
 permissions:
   contents: write
@@ -13,31 +12,15 @@ permissions:
 jobs:
   release:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11
+        with: { fetch-depth: 0 }
+      - uses: actions/setup-python@0a5c61591373683505ea898e09a3ea4f39ef2b9c
+        with: { python-version: "3.12" }
+      - run: pip install build
+      - run: python -m build
+      - uses: softprops/action-gh-release@de2c0eb89ae2a093876385947365aca7b0e5f844  # v1
         with:
-          python-version: "3.12"
-      - uses: dtolnay/rust-toolchain@stable
-      - name: Install build deps
-        run: pip install build twine
-      - name: Build sdist + wheel
-        run: python -m build
-      - name: Build Rust release
-        run: cargo build --manifest-path sentinel-engine/Cargo.toml --release
-      - name: GitHub Release
-        uses: softprops/action-gh-release@v2
-        with:
+          files: dist/*
           generate_release_notes: true
-          files: |
-            dist/*
-            sentinel-engine/target/release/libsentinel_engine.*
-      - name: Docker image
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          file: docker/Dockerfile
-          push: true
-          tags: |
-            ghcr.io/opalclaw/osl-agent-sentinel:${{ github.ref_name }}
-            ghcr.io/opalclaw/osl-agent-sentinel:latest

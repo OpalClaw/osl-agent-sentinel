@@ -19,8 +19,8 @@ def configure_logging(level: str | None = None, fmt: str | None = None) -> None:
 
     Idempotent: safe to call from CLI entry points and from tests.
     """
-    log_level = (level or os.getenv("SENTINEL_LOG_LEVEL", "INFO")).upper()
-    log_format = (fmt or os.getenv("SENTINEL_LOG_FORMAT", "json")).lower()
+    log_level = (level or os.getenv("SENTINEL_LOG_LEVEL") or "INFO").upper()
+    log_format = (fmt or os.getenv("SENTINEL_LOG_FORMAT") or "json").lower()
 
     logging.basicConfig(
         format="%(message)s",
@@ -54,4 +54,6 @@ def configure_logging(level: str | None = None, fmt: str | None = None) -> None:
 
 def get_logger(name: str | None = None) -> structlog.stdlib.BoundLogger:
     """Return a configured structlog logger."""
-    return structlog.get_logger(name)
+    from typing import cast
+
+    return cast("structlog.stdlib.BoundLogger", structlog.get_logger(name))

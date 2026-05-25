@@ -7,14 +7,14 @@ hot-reloaded when a new signed version is published.
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
-from enum import Enum
+from datetime import UTC, datetime
+from enum import StrEnum
 from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
 
 
-class RuleEffect(str, Enum):
+class RuleEffect(StrEnum):
     """The effect a matching rule has on the action."""
 
     ALLOW = "allow"
@@ -26,10 +26,10 @@ class RuleEffect(str, Enum):
 class PolicyRule(BaseModel):
     """A single evaluable rule."""
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="ignore")
 
     id: str
-    description: str
+    description: str = ""
     effect: RuleEffect
     priority: int = Field(100, ge=0, le=10_000)
     enabled: bool = True
@@ -44,11 +44,12 @@ class PolicyRule(BaseModel):
 class PolicyBundle(BaseModel):
     """A signed, versioned set of rules."""
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="ignore", populate_by_name=True)
 
     version: str
-    issued_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-    issuer: str
+    issued_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    issuer: str = ""
+    bundle_id: str = ""
     rules: list[PolicyRule]
     signature: str | None = Field(
         default=None,

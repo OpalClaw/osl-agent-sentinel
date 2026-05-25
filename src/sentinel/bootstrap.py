@@ -1,8 +1,8 @@
 """Process bootstrap.
 
-Builds a default :class:`Interceptor` from environment variables and exposes
-the ASGI app for ``uvicorn``. Production deployments typically replace
-:func:`build_default_interceptor` with their own factory.
+Builds a default Interceptor from environment variables and exposes the
+ASGI app for uvicorn. Production deployments typically replace
+build_default_interceptor with their own factory.
 """
 
 from __future__ import annotations
@@ -11,21 +11,25 @@ import os
 from pathlib import Path
 
 from sentinel.api.app import create_app
-from sentinel.api.dependencies import AppState
-from sentinel.classifiers import AnomalyDetector, IntentClassifier, PromptInjectionDetector, ToolValidator
-from sentinel.core.approval import ApprovalWorkflow
+from sentinel.api.dependencies import AppState, install_state
+from sentinel.classifiers import (
+    AnomalyDetector,
+    IntentClassifier,
+    PromptInjectionDetector,
+    ToolValidator,
+)
+from sentinel.core.approval import ApprovalWorkflow, InMemoryApprovalBackend
 from sentinel.core.cache import LocalPolicyCache
 from sentinel.core.circuit_breaker import CircuitBreaker
-from sentinel.core.interceptor import Interceptor
-from sentinel.core.pipeline import DecisionPipeline
+from sentinel.core.interceptor import Interceptor, InterceptorConfig
+from sentinel.core.pipeline import DecisionPipeline, PipelineDeps
 from sentinel.core.policy_engine import PolicyEngine
 from sentinel.dlp import DLPScanner
 from sentinel.identity import IdentityResolver, InMemoryIdentityStore, TrustScorer
 from sentinel.observability.metrics import Metrics
-from sentinel.observability.siem_exporter import SIEMExporter
 from sentinel.observability.telemetry import configure_telemetry
 from sentinel.policy_pac.loader import PolicyLoader
-from sentinel.tenancy.manager import TenantConfig, TenantManager
+from sentinel.tenancy.manager import TenantManager
 from sentinel.utils.logging import configure_logging
 
 
@@ -40,34 +44,45 @@ def build_default_interceptor() -> Interceptor:
     cache_dir.mkdir(parents=True, exist_ok=True)
 
     loader = PolicyLoader(policy_path)
-    cache = LocalPolicyCache(cache_dir / "last-known-good.json")
-    engine = PolicyEngine(loader=loader, cache=cache)
+    cache = LocalPolicyCache(directory=cache_dir)
+    try:
+        bundle = loader.load()
+        cache.save(bundle)
+    except Exception:
+        # Fail-closed degradation: fall back to last-known-good.
+        cached = cache.load()
+        if cached is None:
+            raise
+        bundle = cached
+    engine = PolicyEngine(bundle=bundle)
 
-    pipeline = DecisionPipeline(
-        engine=engine,
-        intent=IntentClassifier(),
+    deps = PipelineDeps(
+        policy_engine=engine,
+        identity_resolver=IdentityResolver(store=InMemoryIdentityStore()),
+        intent_classifier=IntentClassifier(),
         tool_validator=ToolValidator(),
-        anomaly=AnomalyDetector(),
-        injection=PromptInjectionDetector(),
-        dlp=DLPScanner.default(),
-        identity=IdentityResolver(store=InMemoryIdentityStore()),
-        trust=TrustScorer(),
-        approval=ApprovalWorkflow(),
-        breakers={
-            "identity": CircuitBreaker(name="identity"),
-            "policy": CircuitBreaker(name="policy"),
-            "dlp": CircuitBreaker(name="dlp"),
-        },
+        anomaly_detector=AnomalyDetector(),
+        injection_detector=PromptInjectionDetector(),
+        dlp_scanner=DLPScanner.default(),
+        trust_scorer=TrustScorer(),
+        approval_workflow=ApprovalWorkflow(backend=InMemoryApprovalBackend()),
+        policy_cache=cache,
+        identity_breaker=CircuitBreaker(name="identity"),
+        policy_breaker=CircuitBreaker(name="policy"),
+        dlp_breaker=CircuitBreaker(name="dlp"),
+        tenants=TenantManager.with_default(),
         metrics=Metrics.default(),
     )
 
-    siem = SIEMExporter()
+    pipeline = DecisionPipeline(deps=deps)
     return Interceptor(
         pipeline=pipeline,
-        siem=siem,
-        tenants=TenantManager(seed=[TenantConfig(tenant_id="default", display_name="Default")]),
+        config=InterceptorConfig(),
+        tenants=TenantManager.with_default(),
     )
 
 
 _interceptor = build_default_interceptor()
-asgi_app = create_app(state=AppState(interceptor=_interceptor, tenants=_interceptor.tenants))
+_state = AppState(interceptor=_interceptor, tenants=_interceptor.tenants)
+install_state(_state)
+asgi_app = create_app(state=_state)

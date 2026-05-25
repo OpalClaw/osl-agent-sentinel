@@ -12,18 +12,21 @@ from __future__ import annotations
 import asyncio
 import time
 from dataclasses import dataclass, field
-from enum import Enum
-from typing import Awaitable, Callable, TypeVar
+from enum import StrEnum
+from typing import TYPE_CHECKING, TypeVar
 
 from sentinel.utils.errors import DependencyUnavailableError
 from sentinel.utils.logging import get_logger
+
+if TYPE_CHECKING:
+    from collections.abc import Awaitable, Callable
 
 log = get_logger(__name__)
 
 T = TypeVar("T")
 
 
-class CircuitState(str, Enum):
+class CircuitState(StrEnum):
     CLOSED = "closed"
     OPEN = "open"
     HALF_OPEN = "half_open"
@@ -45,7 +48,7 @@ class CircuitBreaker:
         Number of probe calls allowed in HALF_OPEN.
     """
 
-    name: str
+    name: str = "breaker"
     failure_threshold: int = 5
     reset_timeout: float = 30.0
     half_open_probes: int = 3
@@ -92,9 +95,7 @@ class CircuitBreaker:
     async def _record_failure(self) -> None:
         async with self._lock:
             self._failures += 1
-            if self._state is CircuitState.HALF_OPEN:
-                self._trip()
-            elif self._failures >= self.failure_threshold:
+            if self._state is CircuitState.HALF_OPEN or self._failures >= self.failure_threshold:
                 self._trip()
 
     async def _record_success(self) -> None:

@@ -10,16 +10,18 @@ from __future__ import annotations
 
 import base64
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
+from typing import TYPE_CHECKING
 from uuid import UUID, uuid4
-
-from cryptography.hazmat.primitives.asymmetric.ed25519 import (
-    Ed25519PrivateKey,
-    Ed25519PublicKey,
-)
 
 from sentinel.utils.canonical import canonical_bytes, sha256_hex
 from sentinel.utils.crypto import sign, verify
+
+if TYPE_CHECKING:
+    from cryptography.hazmat.primitives.asymmetric.ed25519 import (
+        Ed25519PrivateKey,
+        Ed25519PublicKey,
+    )
 
 
 @dataclass(slots=True)
@@ -52,13 +54,11 @@ class CMVK:
             key=key,
             digest_hex=digest,
             signature_b64=base64.b64encode(sig).decode("ascii"),
-            issued_at=datetime.now(timezone.utc),
+            issued_at=datetime.now(UTC),
         )
 
     def verify(self, receipt: MemoryReceipt, *, value: object) -> bool:
-        expected = sha256_hex(
-            {"key": receipt.key, "value": value, "agent_did": receipt.agent_did}
-        )
+        expected = sha256_hex({"key": receipt.key, "value": value, "agent_did": receipt.agent_did})
         if expected != receipt.digest_hex:
             return False
         body = canonical_bytes(

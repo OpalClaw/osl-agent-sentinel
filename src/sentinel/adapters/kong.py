@@ -7,11 +7,13 @@ the plugin to apply.
 
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from sentinel.core.interceptor import Interceptor
 from sentinel.models.action import Action, ActionType
 from sentinel.models.decision import DecisionVerdict
+
+if TYPE_CHECKING:
+    from sentinel.core.interceptor import Interceptor
 
 
 class KongPluginAdapter:
@@ -20,7 +22,9 @@ class KongPluginAdapter:
     def __init__(self, interceptor: Interceptor) -> None:
         self._interceptor = interceptor
 
-    async def authorize(self, kong_ctx: dict[str, Any]) -> tuple[int, dict[str, Any], dict[str, str]]:
+    async def authorize(
+        self, kong_ctx: dict[str, Any]
+    ) -> tuple[int, dict[str, Any], dict[str, str]]:
         action = Action(
             type=ActionType.HTTP_REQUEST,
             agent_did=kong_ctx.get("agent_did", "did:unknown:anonymous"),

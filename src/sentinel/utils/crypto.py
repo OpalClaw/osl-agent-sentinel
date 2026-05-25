@@ -63,3 +63,17 @@ def derive_key(secret: bytes, *, info: bytes, length: int = 32, salt: bytes | No
 def constant_time_equals(a: bytes, b: bytes) -> bool:
     """Constant-time equality check."""
     return hmac.compare_digest(a, b)
+
+
+def generate_ed25519_keypair() -> tuple[Ed25519PrivateKey, Ed25519PublicKey]:
+    """Generate a fresh Ed25519 keypair.
+
+    Returns
+    -------
+    tuple
+        ``(private_key, public_key)``. The public key is derived from the
+        private key — callers MUST treat the private key as a secret and
+        store only the public key in any logged or networked artifact.
+    """
+    private = Ed25519PrivateKey.generate()
+    return private, private.public_key()

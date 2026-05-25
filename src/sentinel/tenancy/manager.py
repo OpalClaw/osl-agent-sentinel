@@ -9,9 +9,12 @@ request and supplies its configuration.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from typing import TYPE_CHECKING
 
-from sentinel.models.policy import PolicyBundle
 from sentinel.utils.errors import TenantNotFoundError
+
+if TYPE_CHECKING:
+    from sentinel.models.policy import PolicyBundle
 
 
 @dataclass(slots=True)
@@ -33,6 +36,16 @@ class TenantManager:
 
     def __init__(self, seed: list[TenantConfig] | None = None) -> None:
         self._tenants: dict[str, TenantConfig] = {t.tenant_id: t for t in seed or []}
+
+    @classmethod
+    def with_default(cls) -> TenantManager:
+        """Construct a manager pre-seeded with a single ``default`` tenant.
+
+        Convenient for unit tests, single-tenant deployments, and the
+        smoke-test fixtures. Real deployments should construct the manager
+        with the production tenant list.
+        """
+        return cls(seed=[TenantConfig(tenant_id="default", display_name="Default tenant")])
 
     def register(self, config: TenantConfig) -> None:
         self._tenants[config.tenant_id] = config

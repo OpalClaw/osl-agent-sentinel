@@ -12,11 +12,13 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
-from typing import Protocol
+from typing import TYPE_CHECKING, Protocol
 
 from sentinel.models.action import Action, ActionType
 from sentinel.models.decision import RiskFactor
-from sentinel.models.identity import Identity
+
+if TYPE_CHECKING:
+    from sentinel.models.identity import Identity
 
 
 class EmbeddingProvider(Protocol):
@@ -68,6 +70,14 @@ class IntentClassifier:
             ]
 
         hints = _INTENT_HINTS.get(action.type, set())
+        curated_hints_present = bool(hints)
+        # Always also fold in the tool name (when present) so the classifier
+        # can detect intent that disagrees with the tool being invoked even
+        # when the action type has no curated hint set (e.g. TOOL_CALL).
+        if action.tool:
+            tool_tokens = {t.lower() for t in _split_tool_tokens(action.tool) if len(t) > 2}
+            hints = set(hints) | tool_tokens
+
         tokens = set(_tokenize(intent))
         lexical_overlap = len(tokens & hints) / max(len(hints), 1) if hints else 0.5
 
@@ -78,6 +88,18 @@ class IntentClassifier:
         combined = (lexical_overlap + semantic_overlap) / 2.0
         if combined >= self._config.min_similarity_for_match:
             return []
+
+        # When only tool-name tokens contributed to hints (no curated action-type
+        # hint set), require additional evidence before flagging drift. Benign
+        # intents like "fetch data" vs tool "http.get" routinely have no
+        # lexical overlap with the tool name yet share no actual goal mismatch.
+        if not curated_hints_present and self._embeddings is None:
+            short_intent = len(tokens) <= 4
+            shared_substring = any(
+                len(a) >= 4 and len(b) >= 4 and (a in b or b in a) for a in tokens for b in hints
+            )
+            if short_intent and not shared_substring:
+                return []
 
         severity = min(1.0, 1.0 - combined)
         factor_code = (
@@ -108,3 +130,8 @@ class IntentClassifier:
 
 def _tokenize(s: str) -> list[str]:
     return [t.lower() for t in re.findall(r"[A-Za-z_]+", s)]
+
+
+def _split_tool_tokens(tool: str) -> list[str]:
+    """Break a tool name like ``payments.transfer`` into ``[payments, transfer]``."""
+    return [p for p in re.split(r"[._\-/]", tool) if p]

@@ -12,12 +12,15 @@ from __future__ import annotations
 
 import asyncio
 import sys
-from pathlib import Path
+from typing import TYPE_CHECKING
 
 import typer
 
 from sentinel._version import __version__
 from sentinel.utils.logging import configure_logging, get_logger
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 app = typer.Typer(add_completion=False, no_args_is_help=True, help="osl-agent-sentinel CLI")
 policy_app = typer.Typer(help="Policy bundle operations")
@@ -41,7 +44,7 @@ def version() -> None:
 
 @app.command()
 def serve(
-    host: str = "0.0.0.0",
+    host: str = "0.0.0.0",  # nosec B104 — intentional server bind, operator-controlled
     port: int = 8080,
     workers: int = 1,
     reload: bool = False,
@@ -65,8 +68,8 @@ def policy_verify(
     public_key: Path = typer.Option(..., "--public-key", exists=True, readable=True),
 ) -> None:
     """Verify a signed policy bundle on disk."""
-    from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
     from cryptography.hazmat.primitives import serialization
+    from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
 
     from sentinel.policy_pac.loader import load_bundle_from_path
 

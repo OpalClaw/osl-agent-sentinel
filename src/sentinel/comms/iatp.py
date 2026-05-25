@@ -9,17 +9,19 @@ declared intent for downstream verification.
 from __future__ import annotations
 
 import base64
-from datetime import datetime, timezone
-from typing import Any
+from datetime import UTC, datetime
+from typing import TYPE_CHECKING, Any
 
-from cryptography.hazmat.primitives.asymmetric.ed25519 import (
-    Ed25519PrivateKey,
-    Ed25519PublicKey,
-)
 from pydantic import BaseModel, ConfigDict, Field
 
 from sentinel.utils.canonical import canonical_bytes
 from sentinel.utils.crypto import sign, verify
+
+if TYPE_CHECKING:
+    from cryptography.hazmat.primitives.asymmetric.ed25519 import (
+        Ed25519PrivateKey,
+        Ed25519PublicKey,
+    )
 
 
 class IATPEnvelope(BaseModel):
@@ -31,7 +33,7 @@ class IATPEnvelope(BaseModel):
     recipient_did: str
     conversation_id: str
     nonce: int = Field(..., ge=0)
-    issued_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    issued_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     intent: str
     body: dict[str, Any]
     signature_b64: str | None = None

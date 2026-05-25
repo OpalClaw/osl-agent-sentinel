@@ -4,11 +4,14 @@ from __future__ import annotations
 
 import time
 from dataclasses import dataclass, field
+from typing import TYPE_CHECKING
 
-from starlette.middleware.base import BaseHTTPMiddleware
-from starlette.requests import Request
-from starlette.responses import JSONResponse
-from starlette.types import ASGIApp
+from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
+from starlette.responses import JSONResponse, Response
+
+if TYPE_CHECKING:
+    from starlette.requests import Request
+    from starlette.types import ASGIApp
 
 
 @dataclass(slots=True)
@@ -41,11 +44,13 @@ class TenantRateLimitMiddleware(BaseHTTPMiddleware):
     def _bucket(self, tenant: str) -> _Bucket:
         b = self._buckets.get(tenant)
         if b is None:
-            b = _Bucket(capacity=self._burst, tokens=self._burst, refill_per_second=self._rpm / 60.0)
+            b = _Bucket(
+                capacity=self._burst, tokens=self._burst, refill_per_second=self._rpm / 60.0
+            )
             self._buckets[tenant] = b
         return b
 
-    async def dispatch(self, request: Request, call_next):
+    async def dispatch(self, request: Request, call_next: RequestResponseEndpoint) -> Response:
         tenant = request.headers.get("x-tenant-id", "default")
         if not self._bucket(tenant).take():
             return JSONResponse(

@@ -9,11 +9,14 @@ from __future__ import annotations
 
 import hmac
 import os
+from typing import TYPE_CHECKING
 
-from starlette.middleware.base import BaseHTTPMiddleware
-from starlette.requests import Request
-from starlette.responses import JSONResponse
-from starlette.types import ASGIApp
+from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
+from starlette.responses import JSONResponse, Response
+
+if TYPE_CHECKING:
+    from starlette.requests import Request
+    from starlette.types import ASGIApp
 
 _PUBLIC_PATHS = {"/healthz", "/livez", "/readyz", "/metrics", "/docs", "/openapi.json", "/redoc"}
 
@@ -23,7 +26,7 @@ class BearerAuthMiddleware(BaseHTTPMiddleware):
         super().__init__(app)
         self._token = os.getenv(env_var, "")
 
-    async def dispatch(self, request: Request, call_next):
+    async def dispatch(self, request: Request, call_next: RequestResponseEndpoint) -> Response:
         path = request.url.path
         if path in _PUBLIC_PATHS or path.startswith("/static/"):
             return await call_next(request)

@@ -21,11 +21,15 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
-from typing import Any, Iterable
+from typing import TYPE_CHECKING, Any
 
-from sentinel.models.action import Action
-from sentinel.models.identity import Identity
-from sentinel.models.policy import PolicyBundle, PolicyRule, RuleEffect
+if TYPE_CHECKING:
+    from collections.abc import Iterable
+
+    from sentinel.models.action import Action
+    from sentinel.models.decision import RiskFactor
+    from sentinel.models.identity import Identity
+    from sentinel.models.policy import PolicyBundle, PolicyRule, RuleEffect
 
 
 @dataclass(slots=True)
@@ -46,26 +50,38 @@ class PolicyEngine:
     def bundle(self) -> PolicyBundle:
         return self._bundle
 
-    def replace_bundle(self, bundle: PolicyBundle) -> None:
-        self._bundle = bundle
+    def replace_bundle(self, new_bundle: PolicyBundle) -> None:
+        """Atomically swap the active bundle (hot reload entry point)."""
+        self._bundle = new_bundle
 
-    def evaluate(self, action: Action, identity: Identity | None) -> list[RuleMatch]:
+    def evaluate(
+        self,
+        action: Action,
+        identity: Identity | None,
+        risk_factors: list[RiskFactor] | None = None,
+    ) -> list[RuleMatch]:
+        factors = list(risk_factors or [])
         matches: list[RuleMatch] = []
         for rule in self._bundle.by_priority():
-            if self._matches(rule, action, identity):
+            if self._matches(rule, action, identity, factors):
                 matches.append(RuleMatch(rule=rule, effect=rule.effect))
         return matches
 
     # ------------------------------------------------------------------ matching
 
-    def _matches(self, rule: PolicyRule, action: Action, identity: Identity | None) -> bool:
+    def _matches(
+        self,
+        rule: PolicyRule,
+        action: Action,
+        identity: Identity | None,
+        risk_factors: list[RiskFactor],
+    ) -> bool:
         m = rule.match
         if not m:
             return True
 
-        if (val := m.get("action.type")) is not None:
-            if action.type.value != val:
-                return False
+        if (val := m.get("action.type")) is not None and action.type.value != val:
+            return False
 
         if (val := m.get("action.tool")) is not None:
             if isinstance(val, list):
@@ -80,6 +96,26 @@ class PolicyEngine:
 
         if (val := m.get("identity.did_prefix")) is not None:
             if not action.agent_did.startswith(str(val)):
+                return False
+
+        # Risk-factor predicates --------------------------------------------------
+        if (val := m.get("risk.factor_code_any")) is not None:
+            wanted = set(_ensure_list(val))
+            present = {f.code for f in risk_factors}
+            if not (wanted & present):
+                return False
+        if (val := m.get("risk.factor_code_all")) is not None:
+            wanted = set(_ensure_list(val))
+            present = {f.code for f in risk_factors}
+            if not wanted.issubset(present):
+                return False
+        if (val := m.get("risk.min_severity")) is not None:
+            try:
+                threshold = float(val)
+            except (TypeError, ValueError):
+                return False
+            top = max((f.severity for f in risk_factors), default=0.0)
+            if top < threshold:
                 return False
 
         for key, expected in m.items():
@@ -103,7 +139,7 @@ class PolicyEngine:
             if not isinstance(cur, dict) or part not in cur:
                 return False
             cur = cur[part]
-        return cur == expected
+        return bool(cur == expected)
 
 
 def _ensure_list(val: Any) -> Iterable[str]:

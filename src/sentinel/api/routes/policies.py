@@ -2,11 +2,15 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 from fastapi import APIRouter, Depends, HTTPException, status
 
 from sentinel.api.dependencies import AppState, get_state, get_tenant
 from sentinel.models.policy import PolicyBundle
-from sentinel.tenancy.manager import TenantConfig
+
+if TYPE_CHECKING:
+    from sentinel.tenancy.manager import TenantConfig
 
 router = APIRouter(prefix="/v1/policies", tags=["policies"])
 

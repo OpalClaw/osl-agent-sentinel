@@ -13,13 +13,16 @@ from __future__ import annotations
 
 import os
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 import httpx
 
-from sentinel.core.interceptor import Interceptor
-from sentinel.models.action import Action
 from sentinel.models.decision import Decision, DecisionVerdict
 from sentinel.utils.errors import SentinelError
+
+if TYPE_CHECKING:
+    from sentinel.core.interceptor import Interceptor
+    from sentinel.models.action import Action
 
 
 @dataclass(slots=True)
@@ -57,7 +60,7 @@ class Sentinel:
             )
 
     @classmethod
-    def from_env(cls) -> "Sentinel":
+    def from_env(cls) -> Sentinel:
         base_url = os.environ["SENTINEL_BASE_URL"]
         token = os.environ["SENTINEL_API_TOKEN"]
         tenant = os.getenv("SENTINEL_TENANT_ID", "default")
@@ -66,16 +69,16 @@ class Sentinel:
     async def evaluate(self, action: Action) -> Decision:
         if self._interceptor:
             return await self._interceptor.evaluate(action)
-        assert self._client is not None
+        if self._client is None:
+            raise RuntimeError("Sentinel client not in remote mode")
         try:
             resp = await self._client.post("/v1/evaluate", json=action.model_dump(mode="json"))
             resp.raise_for_status()
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             if self._remote and self._remote.fail_closed:
                 return Decision.deny(
+                    reason=f"sentinel_unreachable: {exc}",
                     action_id=action.id,
-                    reason="sentinel_unreachable",
-                    explanation=f"control plane error: {exc}",
                     degraded=True,
                 )
             raise

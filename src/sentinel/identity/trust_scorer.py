@@ -61,6 +61,30 @@ class TrustScorer:
         tier = _resolve_tier(score)
         return identity.model_copy(update={"trust_score": round(score, 4), "tier": tier})
 
+    def observe(
+        self,
+        identity: Identity,
+        verdict: DecisionVerdict,
+        *,
+        risk_factors: list[RiskFactor] | None = None,
+    ) -> float:
+        """Score this observation, mutate the identity in place, return the new score.
+
+        Mutating is the right default here: the trust score is a property of
+        the identity and a long-lived runtime maintains a single ``Identity``
+        instance per agent. Use :meth:`adjust` if you need an immutable copy
+        for a fan-out workflow.
+        """
+        factors = list(risk_factors or [])
+        updated = self.adjust(identity, factors, verdict)
+        if updated is None:
+            return identity.trust_score
+        # We can't assign through a frozen pydantic model, but Identity is not
+        # frozen — use object.__setattr__ to be safe across pydantic versions.
+        object.__setattr__(identity, "trust_score", updated.trust_score)
+        object.__setattr__(identity, "tier", updated.tier)
+        return updated.trust_score
+
 
 def _resolve_tier(score: float) -> TrustTier:
     for threshold, tier in _TIER_BANDS:

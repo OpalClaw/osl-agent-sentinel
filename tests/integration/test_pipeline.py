@@ -2,12 +2,16 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 import pytest
 
-from sentinel.core.interceptor import Interceptor
 from sentinel.models.action import Action, ActionType
 from sentinel.models.decision import DecisionVerdict
-from sentinel.models.identity import Identity
+
+if TYPE_CHECKING:
+    from sentinel.core.interceptor import Interceptor
+    from sentinel.models.identity import Identity
 
 
 @pytest.mark.asyncio

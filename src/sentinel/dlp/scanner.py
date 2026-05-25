@@ -9,11 +9,15 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field
-from typing import Iterable
+from typing import TYPE_CHECKING
 
-from sentinel.models.action import Action
 from sentinel.models.decision import RiskFactor
-from sentinel.models.identity import Identity
+
+if TYPE_CHECKING:
+    from collections.abc import Iterable
+
+    from sentinel.models.action import Action
+    from sentinel.models.identity import Identity
 
 
 @dataclass(slots=True)
@@ -92,6 +96,11 @@ class DLPScanner:
     def __init__(self, rule_set: DLPRuleSet | None = None, *, enabled: bool = True) -> None:
         self._rules = rule_set or default_rules()
         self._enabled = enabled
+
+    @classmethod
+    def default(cls) -> DLPScanner:
+        """Build a scanner pre-loaded with the bundled default rule set."""
+        return cls(rule_set=default_rules())
 
     async def scan(self, action: Action, identity: Identity | None) -> list[RiskFactor]:
         if not self._enabled:

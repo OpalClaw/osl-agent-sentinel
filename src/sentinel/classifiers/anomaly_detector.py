@@ -13,18 +13,20 @@ import math
 import time
 from collections import deque
 from dataclasses import dataclass, field
-from typing import Deque, Protocol
+from typing import TYPE_CHECKING, Protocol
 
-from sentinel.models.action import Action
 from sentinel.models.decision import RiskFactor
-from sentinel.models.identity import Identity
+
+if TYPE_CHECKING:
+    from sentinel.models.action import Action
+    from sentinel.models.identity import Identity
 
 
 @dataclass(slots=True)
 class _AgentWindow:
     """Per-agent rolling window."""
 
-    actions: Deque[tuple[float, str, str]] = field(default_factory=deque)
+    actions: deque[tuple[float, str, str]] = field(default_factory=deque)
     horizon_seconds: float = 300.0
 
 
@@ -108,3 +110,8 @@ class AnomalyDetector:
 
         await self._store.record(action.agent_did, action)
         return factors
+
+    async def classify(self, action: Action, identity: Identity | None) -> list[RiskFactor]:
+        """Alias for :meth:`score`. Lets the detector share the common
+        :meth:`Classifier.classify` shape used across the project."""
+        return await self.score(action, identity)

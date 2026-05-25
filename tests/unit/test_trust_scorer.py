@@ -38,5 +38,7 @@ def test_violation_decays_score():
 def test_tier_downgrades_below_threshold():
     s = TrustScorer()
     identity = _id(score=0.05, tier=TrustTier.LOW)
-    s.observe(identity, DecisionVerdict.DENY, risk_factors=[RiskFactor(code="x", score=1.0, source="x")])
+    s.observe(
+        identity, DecisionVerdict.DENY, risk_factors=[RiskFactor(code="x", score=1.0, source="x")]
+    )
     assert identity.tier in (TrustTier.LOW, TrustTier.UNTRUSTED)

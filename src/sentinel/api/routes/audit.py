@@ -2,11 +2,15 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 from fastapi import APIRouter, Depends, Query
 
 from sentinel.api.dependencies import AppState, get_state, get_tenant
 from sentinel.models.audit import AuditRecord
-from sentinel.tenancy.manager import TenantConfig
+
+if TYPE_CHECKING:
+    from sentinel.tenancy.manager import TenantConfig
 
 router = APIRouter(prefix="/v1/audit", tags=["audit"])
 
@@ -19,6 +23,6 @@ async def list_audit(
     tenant: TenantConfig = Depends(get_tenant),
     state: AppState = Depends(get_state),
 ) -> list[AuditRecord]:
-    return await state.interceptor.list_audit(
+    return state.interceptor.list_audit(
         tenant.tenant_id, limit=limit, cursor=cursor, verdict=verdict
     )

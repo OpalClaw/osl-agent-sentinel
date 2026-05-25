@@ -3,14 +3,17 @@
 from __future__ import annotations
 
 import os
+from typing import TYPE_CHECKING
 
 import pytest
 from httpx import ASGITransport, AsyncClient
 
 from sentinel.api.app import create_app
 from sentinel.api.dependencies import AppState, install_state
-from sentinel.core.interceptor import Interceptor
 from sentinel.tenancy.manager import TenantManager
+
+if TYPE_CHECKING:
+    from sentinel.core.interceptor import Interceptor
 
 
 @pytest.mark.asyncio

@@ -2,11 +2,15 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 import pytest
 
-from sentinel.core.interceptor import Interceptor
 from sentinel.gateway.mcp_gateway import MCPGateway, ToolDeniedError
-from sentinel.models.identity import Identity
+
+if TYPE_CHECKING:
+    from sentinel.core.interceptor import Interceptor
+    from sentinel.models.identity import Identity
 
 
 @pytest.mark.asyncio

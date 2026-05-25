@@ -2,11 +2,15 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 from fastapi import APIRouter, Depends, HTTPException, status
 
 from sentinel.api.dependencies import AppState, get_state, get_tenant
 from sentinel.models.identity import Identity
-from sentinel.tenancy.manager import TenantConfig
+
+if TYPE_CHECKING:
+    from sentinel.tenancy.manager import TenantConfig
 
 router = APIRouter(prefix="/v1/identities", tags=["identities"])
 
@@ -17,7 +21,7 @@ async def get_identity(
     tenant: TenantConfig = Depends(get_tenant),
     state: AppState = Depends(get_state),
 ) -> Identity:
-    identity = await state.interceptor.lookup_identity(did, tenant.tenant_id)
+    identity = await state.interceptor.lookup_identity(did, tenant_id=tenant.tenant_id)
     if identity is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="identity not found")
     return identity
@@ -29,4 +33,4 @@ async def upsert_identity(
     tenant: TenantConfig = Depends(get_tenant),
     state: AppState = Depends(get_state),
 ) -> Identity:
-    return await state.interceptor.upsert_identity(identity, tenant.tenant_id)
+    return await state.interceptor.upsert_identity(identity, tenant_id=tenant.tenant_id)

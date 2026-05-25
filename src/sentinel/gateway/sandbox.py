@@ -11,21 +11,24 @@ from __future__ import annotations
 
 import time
 from dataclasses import dataclass
-from enum import Enum
-from typing import Any, Awaitable, Callable
+from enum import StrEnum
+from typing import TYPE_CHECKING, Any
 
 from sentinel.utils.logging import get_logger
+
+if TYPE_CHECKING:
+    from collections.abc import Awaitable, Callable
 
 log = get_logger(__name__)
 
 
-class ExecutionRing(str, Enum):
+class ExecutionRing(StrEnum):
     """Isolation tiers, increasing in restriction."""
 
-    R0_TRUSTED = "R0"        # local, full host access
-    R1_NAMESPACED = "R1"     # OS-level namespace isolation
-    R2_CONTAINER = "R2"      # OCI container per call
-    R3_REMOTE_VM = "R3"      # ephemeral VM / microVM per call
+    R0_TRUSTED = "R0"  # local, full host access
+    R1_NAMESPACED = "R1"  # OS-level namespace isolation
+    R2_CONTAINER = "R2"  # OCI container per call
+    R3_REMOTE_VM = "R3"  # ephemeral VM / microVM per call
 
 
 @dataclass(slots=True)
@@ -81,11 +84,11 @@ class Sandbox:
         # process / namespace / VM placement around this thread.
         start = time.perf_counter()
         try:
-            with self._engine.guard(  # type: ignore[attr-defined]
+            with self._engine.guard(
                 ring=ring.value, max_ms=max_ms, max_result_bytes=max_result_bytes
             ):
                 output = await workload()
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             return SandboxResult(
                 output=None,
                 duration_ms=(time.perf_counter() - start) * 1000.0,
@@ -110,14 +113,14 @@ class Sandbox:
         start = time.perf_counter()
         try:
             output = await asyncio.wait_for(workload(), timeout=max_ms / 1000.0)
-        except asyncio.TimeoutError:
+        except TimeoutError:
             return SandboxResult(
                 output=None,
                 duration_ms=(time.perf_counter() - start) * 1000.0,
                 ring=ring,
                 error="timeout",
             )
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             return SandboxResult(
                 output=None,
                 duration_ms=(time.perf_counter() - start) * 1000.0,

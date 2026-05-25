@@ -6,11 +6,13 @@ shape that the proxy can interpret as ALLOW or DENY.
 
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from sentinel.core.interceptor import Interceptor
 from sentinel.models.action import Action, ActionType
 from sentinel.models.decision import DecisionVerdict
+
+if TYPE_CHECKING:
+    from sentinel.core.interceptor import Interceptor
 
 
 class EnvoyExtAuthzAdapter:

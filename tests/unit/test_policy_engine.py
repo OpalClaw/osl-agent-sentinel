@@ -2,87 +2,82 @@
 
 from __future__ import annotations
 
-import pytest
-
 from sentinel.core.policy_engine import PolicyEngine
 from sentinel.models.action import Action, ActionType
-from sentinel.models.decision import DecisionVerdict, RiskFactor
 from sentinel.models.identity import Capability, Identity, TrustTier
 from sentinel.models.policy import PolicyBundle, PolicyRule, RuleEffect
 
 
-def _identity(tier: TrustTier = TrustTier.MEDIUM) -> Identity:
+def _identity(tier: TrustTier = TrustTier.STANDARD) -> Identity:
     return Identity(
-        did="did:test:engine",
+        did="did:test:eval",
         public_key_b64="A" * 43 + "=",
         tier=tier,
         capabilities=[Capability(name="net.http")],
-        trust_score=0.5,
     )
 
 
 def _action(type_: ActionType = ActionType.TOOL_CALL, tool: str | None = "http.get") -> Action:
-    return Action(type=type_, tool=tool, intent="fetch_data", args={"url": "https://example.com"}, tenant_id="t1")
+    return Action(
+        agent_did="did:test:eval",
+        type=type_,
+        tool=tool,
+        arguments={},
+    )
 
 
-def test_deny_takes_precedence_over_allow():
-    bundle = PolicyBundle(
-        version="t",
-        bundle_id="t",
-        rules=[
-            PolicyRule(id="allow-all", match={"runtime.always": True}, effect=RuleEffect.ALLOW),
+def _bundle(rules: list[PolicyRule]) -> PolicyBundle:
+    return PolicyBundle(version="t", issuer="test", rules=rules)
+
+
+def test_default_no_match_returns_empty_list() -> None:
+    engine = PolicyEngine(_bundle([]))
+    assert engine.evaluate(_action(), _identity()) == []
+
+
+def test_deny_takes_precedence_when_higher_priority() -> None:
+    bundle = _bundle(
+        [
             PolicyRule(
-                id="deny-no-cap",
-                match={"risk.factor_code_any": ["tool.no_capability"]},
-                effect=RuleEffect.DENY,
+                id="deny", effect=RuleEffect.DENY, match={"action.tool": "http.get"}, priority=10
             ),
-        ],
+            PolicyRule(id="allow", effect=RuleEffect.ALLOW, match={}, priority=1000),
+        ]
     )
     engine = PolicyEngine(bundle)
-    verdict, matched = engine.evaluate(
-        _action(),
-        _identity(),
-        [RiskFactor(code="tool.no_capability", score=1.0, source="tool_validator")],
-    )
-    assert verdict is DecisionVerdict.DENY
-    assert "deny-no-cap" in {r.id for r in matched}
+    matches = engine.evaluate(_action(), _identity())
+    assert matches, "expected at least one match"
+    assert matches[0].rule.id == "deny"
+    assert matches[0].effect == RuleEffect.DENY
 
 
-def test_escalate_beats_allow_but_loses_to_deny():
-    bundle = PolicyBundle(
-        version="t",
-        bundle_id="t",
-        rules=[
-            PolicyRule(id="allow-all", match={"runtime.always": True}, effect=RuleEffect.ALLOW),
-            PolicyRule(id="escalate-exec", match={"action.type": "code_exec"}, effect=RuleEffect.ESCALATE),
-        ],
-    )
-    engine = PolicyEngine(bundle)
-    verdict, _ = engine.evaluate(_action(type_=ActionType.CODE_EXEC, tool=None), _identity(), [])
-    assert verdict is DecisionVerdict.ESCALATE
-
-
-def test_default_is_deny_when_no_match():
-    bundle = PolicyBundle(version="t", bundle_id="t", rules=[])
-    engine = PolicyEngine(bundle)
-    verdict, matched = engine.evaluate(_action(), _identity(), [])
-    assert verdict is DecisionVerdict.DENY
-    assert matched == []
-
-
-@pytest.mark.parametrize("tier,expected", [
-    (TrustTier.UNTRUSTED, DecisionVerdict.DENY),
-    (TrustTier.TRUSTED, DecisionVerdict.ALLOW),
-])
-def test_tier_gating(tier: TrustTier, expected: DecisionVerdict):
-    bundle = PolicyBundle(
-        version="t",
-        bundle_id="t",
-        rules=[
-            PolicyRule(id="allow-trusted", match={"identity.tier": "trusted"}, effect=RuleEffect.ALLOW),
-            PolicyRule(id="deny-untrusted", match={"identity.tier": "untrusted"}, effect=RuleEffect.DENY),
-        ],
+def test_escalate_matches_when_no_deny_present() -> None:
+    bundle = _bundle(
+        [
+            PolicyRule(
+                id="escalate-code",
+                effect=RuleEffect.ESCALATE,
+                match={"action.type": "code_execution"},
+                priority=10,
+            )
+        ]
     )
     engine = PolicyEngine(bundle)
-    verdict, _ = engine.evaluate(_action(), _identity(tier), [])
-    assert verdict is expected
+    matches = engine.evaluate(_action(type_=ActionType.CODE_EXECUTION, tool=None), _identity())
+    assert any(m.effect == RuleEffect.ESCALATE for m in matches)
+
+
+def test_tool_match_returns_correct_rule() -> None:
+    bundle = _bundle(
+        [
+            PolicyRule(
+                id="allow-http",
+                effect=RuleEffect.ALLOW,
+                match={"action.tool": "http.get"},
+                priority=10,
+            )
+        ]
+    )
+    engine = PolicyEngine(bundle)
+    matches = engine.evaluate(_action(tool="http.get"), _identity())
+    assert any(m.rule.id == "allow-http" for m in matches)

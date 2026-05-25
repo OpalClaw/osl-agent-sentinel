@@ -25,7 +25,7 @@ def configure_telemetry(service_name: str = "osl-agent-sentinel") -> bool:
         from opentelemetry.sdk.resources import Resource
         from opentelemetry.sdk.trace import TracerProvider
         from opentelemetry.sdk.trace.export import BatchSpanProcessor
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         log.warning("telemetry.import_failed", error=str(exc))
         return False
 

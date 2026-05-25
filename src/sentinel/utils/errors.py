@@ -33,3 +33,39 @@ class PipelineError(SentinelError):
 
 class DependencyUnavailableError(PipelineError):
     """A required external dependency (policy source, DB, etc.) is unreachable."""
+
+
+class TenantNotFoundError(SentinelError):
+    """No tenant matches the supplied tenant id."""
+
+
+class ApprovalError(SentinelError):
+    """A human-in-the-loop approval operation failed or was rejected."""
+
+
+class CryptoError(SentinelError):
+    """A cryptographic operation failed."""
+
+
+class SignatureError(CryptoError):
+    """A signature could not be verified."""
+
+
+class ToolValidationError(SentinelError):
+    """A tool invocation failed schema or capability validation."""
+
+
+__all__ = [
+    "ApprovalError",
+    "ConfigurationError",
+    "CryptoError",
+    "DependencyUnavailableError",
+    "IdentityError",
+    "PipelineError",
+    "PolicyError",
+    "PolicySignatureError",
+    "SentinelError",
+    "SignatureError",
+    "TenantNotFoundError",
+    "ToolValidationError",
+]

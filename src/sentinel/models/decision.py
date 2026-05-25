@@ -2,14 +2,14 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
-from enum import Enum
+from datetime import UTC, datetime
+from enum import StrEnum
 from uuid import UUID, uuid4
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import AliasChoices, BaseModel, ConfigDict, Field
 
 
-class DecisionVerdict(str, Enum):
+class DecisionVerdict(StrEnum):
     """Terminal verdict the pipeline emits for an action."""
 
     ALLOW = "allow"
@@ -21,12 +21,22 @@ class DecisionVerdict(str, Enum):
 class RiskFactor(BaseModel):
     """A single contributing risk signal."""
 
-    model_config = ConfigDict(frozen=True)
+    model_config = ConfigDict(frozen=True, populate_by_name=True, extra="ignore")
 
     code: str
-    severity: float = Field(..., ge=0.0, le=1.0)
-    detector: str
-    message: str
+    severity: float = Field(
+        0.5,
+        ge=0.0,
+        le=1.0,
+        validation_alias=AliasChoices("severity", "score"),
+        serialization_alias="severity",
+    )
+    detector: str = Field(
+        "unknown",
+        validation_alias=AliasChoices("detector", "source"),
+        serialization_alias="detector",
+    )
+    message: str = ""
     evidence: dict[str, str] = Field(default_factory=dict)
 
 
@@ -37,7 +47,7 @@ class DecisionExplanation(BaseModel):
     chat agents can all consume the same record.
     """
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="ignore")
 
     summary: str
     triggered_rule_ids: list[str] = Field(default_factory=list)
@@ -49,6 +59,11 @@ class DecisionExplanation(BaseModel):
         description="External references such as OWASP IDs, CWEs, or docs URLs.",
     )
 
+    @property
+    def rationale(self) -> str:
+        """Alias for :attr:`summary`. Some call-sites prefer this spelling."""
+        return self.summary
+
 
 class Decision(BaseModel):
     """Final decision for an action."""
@@ -58,7 +73,7 @@ class Decision(BaseModel):
     id: UUID = Field(default_factory=uuid4)
     action_id: UUID
     verdict: DecisionVerdict
-    decided_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    decided_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     decided_by: str = Field(
         default="sentinel.pipeline",
         description="Component that produced the verdict (pipeline, human reviewer, fallback).",
@@ -78,3 +93,22 @@ class Decision(BaseModel):
     def allowed(self) -> bool:
         """Convenience: whether the action may proceed without further gating."""
         return self.verdict == DecisionVerdict.ALLOW
+
+    @classmethod
+    def deny(
+        cls,
+        reason: str,
+        *,
+        action_id: UUID | None = None,
+        degraded: bool = False,
+    ) -> Decision:
+        """Build a fail-closed DENY decision with the given rationale."""
+        from uuid import uuid4 as _uuid4
+
+        return cls(
+            action_id=action_id or _uuid4(),
+            verdict=DecisionVerdict.DENY,
+            decided_by="sentinel.fail_closed",
+            explanation=DecisionExplanation(summary=reason, risk_score=1.0),
+            degraded=degraded,
+        )

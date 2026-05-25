@@ -2,13 +2,18 @@
 
 from __future__ import annotations
 
-from hypothesis import given, strategies as st
+from hypothesis import given
+from hypothesis import strategies as st
 
 from sentinel.utils.canonical import canonical_bytes, canonical_hash
 
-
 json_atoms = st.recursive(
-    st.one_of(st.none(), st.booleans(), st.integers(min_value=-(2**31), max_value=2**31), st.text(max_size=20)),
+    st.one_of(
+        st.none(),
+        st.booleans(),
+        st.integers(min_value=-(2**31), max_value=2**31),
+        st.text(max_size=20),
+    ),
     lambda children: st.one_of(
         st.lists(children, max_size=5),
         st.dictionaries(st.text(min_size=1, max_size=10), children, max_size=5),

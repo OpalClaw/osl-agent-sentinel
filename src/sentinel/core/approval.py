@@ -8,14 +8,15 @@ workflow is asynchronous and pluggable: any backend that implements the
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
-from typing import Protocol
+from datetime import UTC, datetime
+from typing import TYPE_CHECKING, Protocol
 from uuid import UUID, uuid4
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from sentinel.models.action import Action
-from sentinel.models.decision import Decision, DecisionVerdict
+if TYPE_CHECKING:
+    from sentinel.models.action import Action
+    from sentinel.models.decision import Decision, DecisionVerdict
 
 
 class PendingApproval(BaseModel):
@@ -26,7 +27,7 @@ class PendingApproval(BaseModel):
     id: UUID = Field(default_factory=uuid4)
     action: Action
     initial_decision: Decision
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     expires_at: datetime | None = None
     resolved_at: datetime | None = None
     resolution: DecisionVerdict | None = None
@@ -38,7 +39,9 @@ class ApprovalBackend(Protocol):
     """Pluggable persistence for pending approvals."""
 
     async def enqueue(self, item: PendingApproval) -> None: ...
-    async def resolve(self, item_id: UUID, verdict: DecisionVerdict, resolver: str, notes: str | None) -> PendingApproval: ...
+    async def resolve(
+        self, item_id: UUID, verdict: DecisionVerdict, resolver: str, notes: str | None
+    ) -> PendingApproval: ...
     async def get(self, item_id: UUID) -> PendingApproval | None: ...
 
 
@@ -64,7 +67,7 @@ class InMemoryApprovalBackend:
                 "resolution": verdict,
                 "resolver": resolver,
                 "notes": notes,
-                "resolved_at": datetime.now(timezone.utc),
+                "resolved_at": datetime.now(UTC),
             }
         )
         self._items[item_id] = resolved

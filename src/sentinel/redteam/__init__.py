@@ -2,6 +2,16 @@
 
 from __future__ import annotations
 
-from sentinel.redteam.harness import RedTeamHarness, RedTeamReport, RedTeamScenario
+from sentinel.redteam.harness import (
+    RedTeamHarness,
+    RedTeamReport,
+    RedTeamScenario,
+    default_scenarios,
+)
 
-__all__ = ["RedTeamHarness", "RedTeamReport", "RedTeamScenario"]
+__all__ = [
+    "RedTeamHarness",
+    "RedTeamReport",
+    "RedTeamScenario",
+    "default_scenarios",
+]

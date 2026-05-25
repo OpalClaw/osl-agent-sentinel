@@ -46,8 +46,14 @@ impl KeyPair {
 ///
 /// # Errors
 /// Returns `EngineError::Internal` if the public key bytes are malformed.
-pub fn verify_ed25519(public_key: &[u8; 32], message: &[u8], signature: &[u8; 64]) -> Result<(), EngineError> {
-    let vk = VerifyingKey::from_bytes(public_key).map_err(|e| EngineError::Internal(e.to_string()))?;
+pub fn verify_ed25519(
+    public_key: &[u8; 32],
+    message: &[u8],
+    signature: &[u8; 64],
+) -> Result<(), EngineError> {
+    let vk =
+        VerifyingKey::from_bytes(public_key).map_err(|e| EngineError::Internal(e.to_string()))?;
     let sig = Signature::from_bytes(signature);
-    vk.verify(message, &sig).map_err(|_| EngineError::InvalidSignature)
+    vk.verify(message, &sig)
+        .map_err(|_| EngineError::InvalidSignature)
 }
