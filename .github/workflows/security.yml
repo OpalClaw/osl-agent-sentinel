@@ -22,7 +22,7 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11
-      - uses: actions/setup-python@0a5c61591373683505ea898e09a3ea4f39ef2b9c
+      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405
         with: { python-version: "3.12" }
       - run: pip install bandit[toml]
       - run: bandit -r src -c pyproject.toml
@@ -32,7 +32,7 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11
-      - uses: actions/setup-python@0a5c61591373683505ea898e09a3ea4f39ef2b9c
+      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405
         with: { python-version: "3.12" }
       - run: pip install pip-audit
       - run: pip-audit -r <(pip install --dry-run -e ".[dev]" 2>/dev/null | grep -oE '[a-zA-Z0-9_-]+==[^ ]+' | head -200) || true
@@ -68,7 +68,7 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11
-      - uses: actions/setup-python@0a5c61591373683505ea898e09a3ea4f39ef2b9c
+      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405
         with: { python-version: "3.12" }
       - run: pip install -e ".[dev]"
       - run: python -m sentinel.redteam.harness --emit-json --fail-on-allow > redteam-report.json
@@ -85,7 +85,7 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11
-      - uses: actions/setup-python@0a5c61591373683505ea898e09a3ea4f39ef2b9c
+      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405
         with: { python-version: "3.12" }
       - run: pip install -e .
       - run: python -m sentinel.static_analysis.guard_checker src/sentinel
