@@ -1,0 +1,149 @@
+# =============================================================================
+# Default Policy Bundle — OWASP Agentic AI Top 10 Coverage
+# =============================================================================
+# Every rule maps to one or more OWASP categories. The bundle is signed and
+# distributed as a single artifact; sentinel verifies the signature on load.
+# Match keys: action.type, action.tool, identity.tier, identity.did_prefix,
+#             action.tenant_id, risk.score_min, risk.factor_code_any.
+# Effects:    allow | deny | escalate | throttle.
+# =============================================================================
+
+version: "0.1.0"
+bundle_id: "osl-default-bundle"
+signed_at: null              # populated by `sentinel policy sign`
+signature: null              # ed25519, base64
+
+rules:
+  # ---------------------------------------------------------------------------
+  # AGENT-01: Goal hijacking
+  # ---------------------------------------------------------------------------
+  - id: goal-hijack-mismatch
+    description: "Declared intent diverges from tool / arg shape."
+    owasp: ["AGENT-01"]
+    match:
+      risk.factor_code_any: ["intent.mismatch"]
+      risk.score_min: 0.6
+    effect: deny
+    rationale: "High-confidence intent mismatch — refusing to forward action."
+
+  # ---------------------------------------------------------------------------
+  # AGENT-02: Memory poisoning
+  # ---------------------------------------------------------------------------
+  - id: mem-poison-injection
+    description: "Memory write contains likely injection content."
+    owasp: ["AGENT-02"]
+    match:
+      action.type: memory_write
+      risk.factor_code_any: ["injection.prompt", "injection.override"]
+    effect: deny
+
+  - id: mem-write-untrusted-tier
+    description: "Untrusted agents may not write to long-term memory."
+    owasp: ["AGENT-02"]
+    match:
+      action.type: memory_write
+      identity.tier: untrusted
+    effect: deny
+
+  # ---------------------------------------------------------------------------
+  # AGENT-03: Tool misuse
+  # ---------------------------------------------------------------------------
+  - id: tool-no-capability
+    description: "Action calls a tool the identity does not hold capability for."
+    owasp: ["AGENT-03"]
+    match:
+      risk.factor_code_any: ["tool.no_capability", "tool.disabled", "tool.schema_violation"]
+    effect: deny
+
+  - id: tool-sensitive-escalate
+    description: "Sensitive tools require human approval for non-trusted tiers."
+    owasp: ["AGENT-03", "AGENT-10"]
+    match:
+      action.tool_any: ["finance.transfer", "infra.deploy", "secrets.read"]
+      identity.tier_any: [low, untrusted]
+    effect: escalate
+
+  # ---------------------------------------------------------------------------
+  # AGENT-04: Identity / authorization abuse
+  # ---------------------------------------------------------------------------
+  - id: identity-unsigned-required
+    description: "Production requires signed actions."
+    owasp: ["AGENT-04"]
+    match:
+      identity.signed: false
+      action.tenant_env: production
+    effect: deny
+
+  # ---------------------------------------------------------------------------
+  # AGENT-05: Rogue agents
+  # ---------------------------------------------------------------------------
+  - id: rogue-anomaly-spike
+    description: "Behavioral anomaly score above threshold."
+    owasp: ["AGENT-05"]
+    match:
+      risk.factor_code_any: ["anomaly.rate_spike", "anomaly.tool_drift"]
+      risk.score_min: 0.75
+    effect: throttle
+
+  # ---------------------------------------------------------------------------
+  # AGENT-06: Supply-chain risks (enforced at build/deploy, surfaced here)
+  # ---------------------------------------------------------------------------
+  - id: supply-chain-unverified-bundle
+    description: "Refuse to evaluate when policy bundle signature is invalid."
+    owasp: ["AGENT-06"]
+    match:
+      runtime.bundle_signature_valid: false
+    effect: deny
+
+  # ---------------------------------------------------------------------------
+  # AGENT-07: Code-execution abuse
+  # ---------------------------------------------------------------------------
+  - id: code-exec-escalate
+    description: "Arbitrary code execution always requires approval."
+    owasp: ["AGENT-07"]
+    match:
+      action.type: code_exec
+    effect: escalate
+
+  # ---------------------------------------------------------------------------
+  # AGENT-08: Insecure communications
+  # ---------------------------------------------------------------------------
+  - id: iatp-invalid-signature
+    description: "Inter-agent message has invalid or missing IATP signature."
+    owasp: ["AGENT-08"]
+    match:
+      risk.factor_code_any: ["iatp.bad_signature", "iatp.replay"]
+    effect: deny
+
+  # ---------------------------------------------------------------------------
+  # AGENT-09: Cascading failures
+  # ---------------------------------------------------------------------------
+  - id: cascade-degraded-mode
+    description: "While running in degraded mode, deny anything not strictly necessary."
+    owasp: ["AGENT-09"]
+    match:
+      runtime.degraded: true
+      action.type_any: [code_exec, memory_write, tool_call]
+      identity.tier_any: [low, untrusted]
+    effect: deny
+
+  # ---------------------------------------------------------------------------
+  # AGENT-10: Human-agent trust exploitation
+  # ---------------------------------------------------------------------------
+  - id: human-trust-explain-required
+    description: "All deny / escalate decisions emit a structured explanation."
+    owasp: ["AGENT-10"]
+    match:
+      runtime.always: true
+    effect: allow
+    rationale: "Synthetic rule — enforces explanation enrichment in the pipeline."
+
+  # ---------------------------------------------------------------------------
+  # DLP — sensitive data
+  # ---------------------------------------------------------------------------
+  - id: dlp-secret-block
+    description: "Block actions whose payload contains likely secrets."
+    owasp: ["AGENT-02", "AGENT-04"]
+    match:
+      risk.factor_code_any: ["dlp.api_key", "dlp.private_key", "dlp.aws_secret"]
+    effect: deny

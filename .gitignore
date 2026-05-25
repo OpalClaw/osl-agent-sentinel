@@ -1,0 +1,93 @@
+# --- Python ---
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.tox/
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+
+# --- Virtual environments ---
+.venv/
+venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+
+# --- Rust ---
+target/
+**/*.rs.bk
+
+# --- Node / docs tooling ---
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# --- Environment & secrets ---
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.crt
+!**/test_fixtures/*.pem
+!**/test_fixtures/*.crt
+
+# --- IDE / editor ---
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# --- OS ---
+Thumbs.db
+
+# --- Build artifacts ---
+site/
+docs/_build/
+sbom/
+*.tar.gz
+*.tar.zst
+*.whl
+*.sig
+*.pem
+
+# --- Local data ---
+data/
+logs/
+*.log
+*.sqlite
+*.sqlite3
+*.db
+
+# --- Docker ---
+.docker/
+docker-compose.override.yml

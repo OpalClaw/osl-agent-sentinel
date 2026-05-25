@@ -1,0 +1,27 @@
+version: 2
+updates:
+  - package-ecosystem: pip
+    directory: "/"
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 10
+    labels: [dependencies, python]
+
+  - package-ecosystem: cargo
+    directory: "/sentinel-engine"
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 10
+    labels: [dependencies, rust]
+
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly
+    labels: [dependencies, ci]
+
+  - package-ecosystem: docker
+    directory: "/docker"
+    schedule:
+      interval: weekly
+    labels: [dependencies, docker]

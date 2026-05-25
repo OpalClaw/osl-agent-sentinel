@@ -1,0 +1,26 @@
+version: "3.9"
+
+services:
+  sentinel:
+    image: ghcr.io/opalclaw/osl-agent-sentinel:latest
+    restart: unless-stopped
+    environment:
+      SENTINEL_ENV: production
+      SENTINEL_API_TOKEN: ${SENTINEL_API_TOKEN:?must be set}
+      SENTINEL_POLICY_PATH: /etc/sentinel/policies/default.yaml
+      SENTINEL_POLICY_PUBLIC_KEY: /etc/sentinel/keys/policy.pub
+      SENTINEL_SIEM_BACKEND: http
+      SENTINEL_SIEM_URL: ${SENTINEL_SIEM_URL:?must be set}
+    ports:
+      - "8080:8080"
+    volumes:
+      - sentinel-policy-cache:/var/lib/sentinel
+      - ./config:/etc/sentinel:ro
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 2G
+
+volumes:
+  sentinel-policy-cache: {}

@@ -1,0 +1,33 @@
+version: "3.9"
+
+services:
+  sentinel:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    image: osl-agent-sentinel:dev
+    container_name: sentinel
+    environment:
+      SENTINEL_ENV: development
+      SENTINEL_API_TOKEN: dev-token-change-me
+      SENTINEL_LOG_LEVEL: DEBUG
+      SENTINEL_LOG_FORMAT: console
+    ports:
+      - "8080:8080"
+    volumes:
+      - ../config:/etc/sentinel:ro
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/livez').read()"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  prometheus:
+    image: prom/prometheus:v2.55.0
+    container_name: sentinel-prometheus
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    ports:
+      - "9090:9090"
+    depends_on:
+      - sentinel

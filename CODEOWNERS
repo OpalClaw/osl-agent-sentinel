@@ -1,0 +1,32 @@
+# =============================================================================
+# CODEOWNERS — osl-agent-sentinel
+# =============================================================================
+# Every PR that touches a critical path requires review from the listed owners.
+# Owners are matched in order; the last match wins.
+# =============================================================================
+
+# Default owners for everything in the repo.
+*                               @OpalClaw
+
+# Documentation
+/docs/                          @OpalClaw
+README.md                       @OpalClaw
+CHANGELOG.md                    @OpalClaw
+
+# Security-critical surfaces
+SECURITY.md                     @OpalClaw
+/src/sentinel/identity/         @OpalClaw
+/src/sentinel/verification/     @OpalClaw
+/src/sentinel/comms/            @OpalClaw
+/src/sentinel/core/policy_engine.py  @OpalClaw
+/src/sentinel/core/interceptor.py    @OpalClaw
+/sentinel-engine/               @OpalClaw
+
+# CI / CD / supply chain
+/.github/                       @OpalClaw
+/docker/                        @OpalClaw
+/scripts/release/               @OpalClaw
+
+# Tenancy and observability
+/src/sentinel/tenancy/          @OpalClaw
+/src/sentinel/observability/    @OpalClaw

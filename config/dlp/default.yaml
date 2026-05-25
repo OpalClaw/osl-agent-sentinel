@@ -1,0 +1,32 @@
+# Default DLP rule set.
+# Each rule fires a `RiskFactor` whose code matches one of the policy
+# `risk.factor_code_any` matchers in the default bundle.
+
+rules:
+  - code: dlp.aws_secret
+    pattern: "(?i)AKIA[0-9A-Z]{16}"
+    severity: high
+
+  - code: dlp.aws_secret_key
+    pattern: "(?i)aws(.{0,20})?(secret|access)[^A-Za-z0-9]{0,5}([A-Za-z0-9/+=]{40})"
+    severity: high
+
+  - code: dlp.api_key
+    pattern: "(?i)(api[_-]?key|token)[\"': =]{1,4}[A-Za-z0-9_\\-]{24,}"
+    severity: high
+
+  - code: dlp.private_key
+    pattern: "-----BEGIN (?:RSA |EC |OPENSSH |DSA |)PRIVATE KEY-----"
+    severity: high
+
+  - code: dlp.bearer_token
+    pattern: "(?i)bearer\\s+[A-Za-z0-9._\\-]{20,}"
+    severity: medium
+
+  - code: dlp.credit_card_like
+    pattern: "\\b(?:\\d[ -]*?){13,19}\\b"
+    severity: medium
+
+  - code: dlp.email
+    pattern: "[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}"
+    severity: low

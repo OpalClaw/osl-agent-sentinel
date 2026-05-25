@@ -1,0 +1,43 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+permissions:
+  contents: write
+  packages: write
+  id-token: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Install build deps
+        run: pip install build twine
+      - name: Build sdist + wheel
+        run: python -m build
+      - name: Build Rust release
+        run: cargo build --manifest-path sentinel-engine/Cargo.toml --release
+      - name: GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          files: |
+            dist/*
+            sentinel-engine/target/release/libsentinel_engine.*
+      - name: Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: docker/Dockerfile
+          push: true
+          tags: |
+            ghcr.io/opalclaw/osl-agent-sentinel:${{ github.ref_name }}
+            ghcr.io/opalclaw/osl-agent-sentinel:latest

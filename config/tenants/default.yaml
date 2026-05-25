@@ -1,0 +1,8 @@
+tenants:
+  - id: default
+    name: "Default tenant"
+    environment: development
+    rate_limit_rps: 100
+    rate_limit_burst: 200
+    require_signed_actions: false
+    default_ring: r1_namespaced

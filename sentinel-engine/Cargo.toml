@@ -1,0 +1,46 @@
+[package]
+name = "sentinel-engine"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.78"
+license = "MIT"
+description = "Rust execution-ring engine for osl-agent-sentinel. Provides isolation tiers, sandboxed action execution, and signing primitives."
+repository = "https://github.com/OpalClaw/osl-agent-sentinel"
+homepage = "https://github.com/OpalClaw/osl-agent-sentinel"
+authors = ["OpalSageLabs <engineering@opalsagelabs.click>"]
+readme = "README.md"
+keywords = ["agent", "security", "sandbox", "isolation", "owasp"]
+categories = ["api-bindings", "security"]
+
+[lib]
+name = "sentinel_engine"
+crate-type = ["rlib", "cdylib"]
+
+[features]
+default = []
+pyo3 = ["dep:pyo3"]
+
+[dependencies]
+ed25519-dalek = { version = "2.1", features = ["std", "rand_core"] }
+rand_core = { version = "0.6", features = ["std"] }
+sha2 = "0.10"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "1"
+tracing = "0.1"
+pyo3 = { version = "0.21", features = ["extension-module", "abi3-py311"], optional = true }
+
+[dev-dependencies]
+criterion = { version = "0.5", features = ["html_reports"] }
+proptest = "1"
+
+[[bench]]
+name = "decision"
+harness = false
+
+[profile.release]
+lto = "fat"
+codegen-units = 1
+opt-level = 3
+panic = "abort"
+strip = "symbols"
