@@ -983,7 +983,7 @@ dependencies = [
  "ed25519-dalek",
  "proptest",
  "pyo3",
- "rand_core 0.6.4",
+ "rand_core 0.9.5",
  "serde",
  "serde_json",
  "sha2",
