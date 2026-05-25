@@ -22,7 +22,7 @@ Built end-to-end against the OWASP Agentic AI Top 10.
 
 ## Overview
 
-`osl-agent-sentinel` is a production-grade runtime security layer for autonomous AI agents. It sits between an agent (LangChain, LangGraph, AutoGen, CrewAI, custom runtimes, MCP clients) and the tools, APIs, models, files, and external systems the agent attempts to touch. Every proposed action — tool call, file write, HTTP request, code execution, memory mutation, sub-agent spawn — is intercepted, classified, scored, policy-checked, signed, and either allowed, denied, escalated to human approval, or rate-limited.
+`osl-agent-sentinel` is a production-grade runtime security layer for autonomous AI agents. It sits between an agent (LangChain, LangGraph, AutoGen, CrewAI, custom runtimes, MCP clients) and the tools, APIs, models, files, and external systems the agent attempts to touch. Every proposed action  tool call, file write, HTTP request, code execution, memory mutation, sub-agent spawn is intercepted, classified, scored, policy-checked, signed, and either allowed, denied, escalated to human approval, or rate-limited.
 
 It is designed for the operational reality of agentic systems in production: opaque LLM intent, ambient prompt injection, compromised tool outputs, drifting policies, multi-tenant blast radius, and the absence of meaningful default guardrails in modern agent frameworks.
 
