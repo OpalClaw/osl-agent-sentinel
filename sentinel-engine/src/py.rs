@@ -1,4 +1,4 @@
-//! PyO3 bindings.
+//! `PyO3` bindings.
 //!
 //! Exposes `Engine`, `Ring`, and `verify_ed25519` to Python.
 
